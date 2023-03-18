@@ -70,6 +70,7 @@ setenv OPAL_PREFIX $nvcommdir/mpi
 Detailed steps:
 
 1). cmake in build dir: (please make sure echo $CXX returns nvc++ compiler!)
+mkdir build
 cd build
 cmake ../.cmake-test/
 
@@ -78,7 +79,8 @@ cmake ../.cmake-test/
 3). Set LD_LIBRARY_PATH:
 export LD_LIBRARY_PATH=<path-to-build-directory>:${LD_LRBRARY_PATH}
 
-4). Build the main project:
+4). Build the main project in main directory:
+cd ..
 g++ main.C -L<path-to-build-directory> -lStdpar_test_inner -o diff_compiler
 
 5). Run main program, you will see error of the following:
@@ -90,4 +92,4 @@ Aborted (core dumped)
 6). If you look at main.C, this error shows up when a instance of Inner class is destroyed. If we use the nvc++ compiler to build the main program, this error disappear:
 nvc++ main.C -L<path-to-build-directory> -lStdpar_test_inner -o same_compiler; ./same_compiler
 
-7). We can modify libStdpar_test_inner.so without rebuild the main project to locate this error. Modify Inner.C, then comment out push_back() call in test(), then make again in build directory, and run main program again. This error will also disappear, suggesting that this error is due to the destruction of non-empty vector
+7). We can modify libStdpar_test_inner.so without rebuild the main project to locate this error. Modify Inner.C, then comment out push_back() call in test(), then make again in build directory, and run ./diff_compiler again. This error will disappear, suggesting that this error is due to the destruction of non-empty vector
