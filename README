@@ -1,0 +1,93 @@
+My env:
+
+$ nvidia-smi
+Sat Mar 18 01:55:25 2023
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 525.60.13    Driver Version: 525.60.13    CUDA Version: 12.0     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  NVIDIA A30          Off  | 00000000:01:00.0 Off |                    0 |
+| N/A   28C    P0    28W / 165W |      0MiB / 24576MiB |      0%      Default |
+|                               |                      |             Disabled |
++-------------------------------+----------------------+----------------------+
+
+========================================================
+
+Module I used to setup nvc++ compiler:
+
+conflict nvhpc
+conflict nvhpc-nompi
+conflict nvhpc-byo-compiler
+conflict nvhpc-hpcx
+
+set nvhome /work/software/nvidia/nvhpc_2023_231/
+set target Linux_x86_64
+set version 23.1
+
+set nvcudadir $nvhome/$target/$version/cuda/12.0
+set nvcompdir $nvhome/$target/$version/compilers
+set nvmathdir $nvhome/$target/$version/math_libs
+set nvcommdir $nvhome/$target/$version/comm_libs
+
+setenv NVHPC $nvhome
+setenv NVHPC_ROOT $nvhome/$target/$version
+setenv CC $nvcompdir/bin/nvc
+setenv CXX $nvcompdir/bin/nvc++
+setenv FC $nvcompdir/bin/nvfortran
+setenv F90 $nvcompdir/bin/nvfortran
+setenv F77 $nvcompdir/bin/nvfortran
+setenv CPP cpp
+
+prepend-path PATH $nvcudadir/bin
+prepend-path PATH $nvcompdir/bin
+prepend-path PATH $nvcommdir/mpi/bin
+prepend-path PATH $nvcompdir/extras/qd/bin
+
+prepend-path LD_LIBRARY_PATH $nvcudadir/lib64
+prepend-path LD_LIBRARY_PATH $nvcudadir/extras/CUPTI/lib64
+prepend-path LD_LIBRARY_PATH $nvcompdir/extras/qd/lib
+prepend-path LD_LIBRARY_PATH $nvcompdir/lib
+prepend-path LD_LIBRARY_PATH $nvmathdir/lib64
+prepend-path LD_LIBRARY_PATH $nvcommdir/mpi/lib
+prepend-path LD_LIBRARY_PATH $nvcommdir/nccl/lib
+prepend-path LD_LIBRARY_PATH $nvcommdir/nvshmem/lib
+
+prepend-path CPATH $nvmathdir/include
+prepend-path CPATH $nvcommdir/mpi/include
+prepend-path CPATH $nvcommdir/nccl/include
+prepend-path CPATH $nvcommdir/nvshmem/include
+prepend-path CPATH $nvcompdir/extras/qd/include/qd
+
+prepend-path MANPATH $nvcompdir/man
+
+setenv OPAL_PREFIX $nvcommdir/mpi
+
+============================================================
+
+Detailed steps:
+
+1). cmake in build dir: (please make sure echo $CXX returns nvc++ compiler!)
+cd build
+cmake ../.cmake-test/
+
+2). make, which will generate the libStdpar_test_inner.so file
+
+3). Set LD_LIBRARY_PATH:
+export LD_LIBRARY_PATH=<path-to-build-directory>:${LD_LRBRARY_PATH}
+
+4). Build the main project:
+g++ main.C -L<path-to-build-directory> -lStdpar_test_inner -o diff_compiler
+
+5). Run main program, you will see error of the following:
+$ ./diff_compiler 
+Inner finish
+free(): invalid pointer
+Aborted (core dumped)
+
+6). If you look at main.C, this error shows up when a instance of Inner class is destroyed. If we use the nvc++ compiler to build the main program, this error disappear:
+nvc++ main.C -L<path-to-build-directory> -lStdpar_test_inner -o same_compiler; ./same_compiler
+
+7). We can modify libStdpar_test_inner.so without rebuild the main project to locate this error. Modify Inner.C, then comment out push_back() call in test(), then make again in build directory, and run main program again. This error will also disappear, suggesting that this error is due to the destruction of non-empty vector
